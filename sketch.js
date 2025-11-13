@@ -182,16 +182,7 @@ function draw() {
   // 周波数グラフを左下に描画
   drawFrequencyGraph();
 
-  // 情報表示
-  noStroke();
-  fill(255, 255, 255, 200);
-  rect(8, 8, 320, 56, 6);
-  fill(0);
-  textSize(14);
-  textAlign(LEFT, TOP);
-  text('Handpose: ' + (predictions.length > 0 ? 'detected' : 'no hand'), 14, 12);
-  if (predictions.length > 0) text('Freq: ' + nf(lastDisplayedFreq, 0, 1) + ' Hz', 14, 30);
-  else text('Freq: -', 14, 30);
+  // 情報表示（左上テキストボックス）はUI要望により削除しました。
 }
 
 function drawHand(dx, dy, drawW, drawH, vw, vh) {
@@ -240,7 +231,8 @@ function drawFrequencyGraph() {
   const H = CONFIG.GRAPH.HEIGHT;
   const M = CONFIG.GRAPH.MARGIN;
   const x0 = M;
-  const y0 = height - H - M;
+  // place graph at top-left, offset under the Start button to avoid overlap
+  const y0 = M + 48;
 
   // パネル背景
   noStroke();
