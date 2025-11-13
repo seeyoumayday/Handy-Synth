@@ -15,7 +15,7 @@ let active = false; // 音が出ているかどうか
 let lastDisplayedFreq = 0;
 
 function setup() {
-  createCanvas(640, 480);
+  createCanvas(windowWidth, windowHeight);
   // カメラ
   video = createCapture(VIDEO);
   video.size(width, height);
@@ -55,6 +55,14 @@ function setup() {
   }
 }
 
+function windowResized() {
+  // ウィンドウサイズに合わせてキャンバスとビデオをリサイズ
+  resizeCanvas(windowWidth, windowHeight);
+  if (video && typeof video.size === 'function') {
+    video.size(width, height);
+  }
+}
+
 function modelReady() {
   console.log('Handpose model ready');
 }
@@ -66,15 +74,26 @@ function gotResults(results) {
 function draw() {
   background(200);
 
-  // ミラー表示
-  push();
-  translate(width, 0);
-  scale(-1, 1);
-  image(video, 0, 0, width, height);
+  // ビデオの実際のピクセルサイズ（取得できなければキャンバスサイズを使う）
+  const vw = (video && video.elt && video.elt.videoWidth) ? video.elt.videoWidth : video.width;
+  const vh = (video && video.elt && video.elt.videoHeight) ? video.elt.videoHeight : video.height;
 
-  // ランドマーク描画
-  drawHand();
+  // アスペクト比を保持してキャンバスに収める（letterbox）
+  const scl = Math.min(width / vw, height / vh);
+  const drawW = vw * scl;
+  const drawH = vh * scl;
+  const dx = (width - drawW) / 2;
+  const dy = (height - drawH) / 2;
+
+  // ミラーしつつ、アスペクト比を保った大きさで描画する
+  push();
+  translate(dx + drawW, 0);
+  scale(-1, 1);
+  image(video, 0, dy, drawW, drawH);
   pop();
+
+  // ランドマーク描画（描画領域に合わせてスケーリング & ミラー処理）
+  drawHand(dx, dy, drawW, drawH, vw, vh);
 
   // 音声処理: 親指(4)と小指(20)の距離で周波数、手の重心xで微小ピッチベンド
   if (predictions.length > 0 && audioCtx && osc && gainNode) {
@@ -159,28 +178,41 @@ function draw() {
   }
 }
 
-function drawHand() {
+function drawHand(dx, dy, drawW, drawH, vw, vh) {
+  if (!predictions || predictions.length === 0) return;
+  const sx = drawW / vw;
+  const sy = drawH / vh;
+
   for (let i = 0; i < predictions.length; i++) {
     const prediction = predictions[i];
-    // Draw all keypoints
-    for (let j = 0; j < prediction.landmarks.length; j++) {
-      const keypoint = prediction.landmarks[j];
-      fill(0, 255, 0);
-      noStroke();
-      ellipse(keypoint[0], keypoint[1], 8, 8);
+    const lm = prediction.landmarks;
+
+    // Draw keypoints
+    noStroke();
+    fill(0, 255, 0);
+    for (let j = 0; j < lm.length; j++) {
+      const kx = lm[j][0];
+      const ky = lm[j][1];
+      // scale and mirror x inside the drawn video area
+      const drawX = dx + (drawW - (kx * sx));
+      const drawY = dy + (ky * sy);
+      ellipse(drawX, drawY, 8, 8);
     }
 
-    // draw simple connections
+    // Draw connections
     stroke(0, 200, 255, 150);
     strokeWeight(2);
-    const lm = prediction.landmarks;
     const fingers = [ [0,1,2,3,4], [0,5,6,7,8], [0,9,10,11,12], [0,13,14,15,16], [0,17,18,19,20] ];
     for (let f=0; f<fingers.length; f++){
       const arr = fingers[f];
       for (let k=0; k<arr.length-1; k++){
         const a = lm[arr[k]];
         const b = lm[arr[k+1]];
-        line(a[0], a[1], b[0], b[1]);
+        const ax = dx + (drawW - (a[0] * sx));
+        const ay = dy + (a[1] * sy);
+        const bx = dx + (drawW - (b[0] * sx));
+        const by = dy + (b[1] * sy);
+        line(ax, ay, bx, by);
       }
     }
   }
