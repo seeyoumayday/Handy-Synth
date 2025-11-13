@@ -76,13 +76,19 @@ function draw() {
     const t = (cd - CONFIG.MIN_D) / (CONFIG.MAX_D - CONFIG.MIN_D);
     const baseFreq = CONFIG.LOW_FREQ + t * (CONFIG.HIGH_FREQ - CONFIG.LOW_FREQ);
 
-    // 手の重心 x
+    // 手の重心 (動画座標系)
     let cx = 0;
-    for (let i = 0; i < hand.landmarks.length; i++) cx += hand.landmarks[i][0];
+    let cy = 0;
+    for (let i = 0; i < hand.landmarks.length; i++){
+      cx += hand.landmarks[i][0];
+      cy += hand.landmarks[i][1];
+    }
     cx /= hand.landmarks.length;
+    cy /= hand.landmarks.length;
 
     // ピッチベンド（横位置 → ±比率）
-    const bend = map(cx, 0, width, -CONFIG.BEND_RANGE, CONFIG.BEND_RANGE);
+    // hand.landmarks は動画座標系 (0..vw, 0..vh) のため、vw を基準にマップする
+    const bend = map(cx, 0, vw, -CONFIG.BEND_RANGE, CONFIG.BEND_RANGE);
     const targetFreq = baseFreq * (1 + bend);
 
     // 周波数を滑らかに変える
@@ -95,14 +101,18 @@ function draw() {
       window.audioEngine.noteOn(0.18, 0.08);
     }
 
-    // 軽く重心位置を可視化
-    push();
-    noStroke();
-    fill(255, 200, 0, 180);
-    // cx はミラーしているので反転して描画
-    const drawX = width - cx;
-    ellipse(drawX, 20, 12, 12);
-    pop();
+  // 軽く重心位置を可視化（動画→描画領域へスケール＆ミラー変換）
+  // drawW/drawH, dx/dy は上で計算済み
+  const sx = drawW / vw;
+  const sy = drawH / vh;
+  const drawCX = dx + (drawW - (cx * sx)); // ミラー処理
+  const drawCY = dy + (cy * sy);
+
+  push();
+  noStroke();
+  fill(255, 200, 0, 180);
+  ellipse(drawCX, drawCY, 12, 12);
+  pop();
 
   } else if (window.audioEngine.isReady() && window.audioEngine.isActive()) {
     // 手が見えないときはフェードアウト
