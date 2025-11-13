@@ -108,8 +108,95 @@
     text(nf(lastDisplayedFreq, 0, 1) + ' Hz', x0 + 8, y0 + H - 8);
   }
 
+  function drawFilterGraph(cutoff, CONFIG){
+    const W = CONFIG.GRAPH.WIDTH;
+    const H = CONFIG.GRAPH.HEIGHT;
+    const M = CONFIG.GRAPH.MARGIN;
+  // 周波数グラフの下に配置
+  const x0 = M + 6;                // さらに左余白
+  const y0 = M + 48 + H + M + 6;   // さらに上余白
+
+  // パネル背景
+  noStroke();
+  fill(0, 0, 0, 140);
+  rect(x0, y0, W, H, 10);
+
+  // 内部描画パディングで曲線を少し下げる
+  const padTop = 8;
+  const padBottom = 10;
+  const innerHeight = H - padTop - padBottom;
+
+    // グリッド
+    stroke(255, 255, 255, 50);
+    strokeWeight(1);
+    const gridRows = 4;
+    const gridCols = 6;
+    for (let r = 1; r < gridRows; r++) {
+      const gy = y0 + (H * r) / gridRows;
+      line(x0, gy, x0 + W, gy);
+    }
+    for (let c = 1; c < gridCols; c++) {
+      const gx = x0 + (W * c) / gridCols;
+      line(gx, y0, gx, y0 + H);
+    }
+
+    // cutoff が未定義ならラベルのみ
+    if (!cutoff || isNaN(cutoff)) {
+      fill(255);
+      textSize(11);
+      textAlign(LEFT, TOP);
+      text('LP Cutoff: -- Hz', x0 + 8, y0 + 8);
+      return;
+    }
+
+    const fMin = CONFIG.FILTER_MIN_CUTOFF;
+    const fMax = CONFIG.FILTER_MAX_CUTOFF;
+  const samplePoints = 120; // 曲線サンプル密度
+    const clampedCutoff = constrain(cutoff, fMin, fMax);
+
+    // ローパス一次フィルタ風の理想振幅: A(f) = 1 / sqrt(1 + (f/fc)^2)
+    // （視覚的にわかりやすいように改変可能）
+    noFill();
+    stroke(0, 255, 255);
+    strokeWeight(2);
+    beginShape();
+    for (let i = 0; i < samplePoints; i++) {
+      const t = i / (samplePoints - 1);
+      const f = fMin + t * (fMax - fMin);
+      const amp = 1 / Math.sqrt(1 + Math.pow(f / clampedCutoff, 2));
+      // 1.0 が innerHeight の最上端に近づきすぎないよう 0.92 スケールを適用
+      const scaledAmp = amp * 0.92;
+      const x = x0 + t * W;
+      const y = y0 + padTop + (innerHeight - scaledAmp * innerHeight);
+      vertex(x, y);
+    }
+    endShape();
+
+    // カットオフ位置の垂直ライン
+    const cutoffT = (clampedCutoff - fMin) / (fMax - fMin);
+    const cutoffX = x0 + cutoffT * W;
+    stroke(0, 255, 255, 120);
+    strokeWeight(1);
+    line(cutoffX, y0, cutoffX, y0 + H);
+
+    // カットオフ点
+  const cutoffAmp = 1 / Math.sqrt(1 + Math.pow(clampedCutoff / clampedCutoff, 2)); // = 1 / sqrt(2) ≈ 0.707
+  const cutoffScaled = cutoffAmp * 0.92;
+  const cutoffY = y0 + padTop + (innerHeight - cutoffScaled * innerHeight);
+    noStroke();
+    fill(255);
+    circle(cutoffX, cutoffY, 6);
+
+    // ラベル
+    fill(255);
+    textSize(11);
+    textAlign(LEFT, TOP);
+    text('LP Cutoff: ' + nf(clampedCutoff, 0, 0) + ' Hz', x0 + 8, y0 + 8);
+  }
+
   window.drawUtils = {
     drawHand,
-    drawFrequencyGraph
+    drawFrequencyGraph,
+    drawFilterGraph
   };
 })();

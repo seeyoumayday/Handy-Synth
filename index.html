@@ -29,6 +29,43 @@
       padding: 6px 12px;
       cursor: pointer;
     }
+    /* Resonance(Q) スライダーのカラーテーマ（シアン＋白） */
+    #filterQ {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 180px;
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, rgba(0,255,255,0.15), rgba(0,255,255,0.85));
+      outline: none;
+      margin-top: 4px;
+    }
+    #filterQ::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #00ffff;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 6px rgba(0,255,255,0.6);
+      cursor: pointer;
+    }
+    #filterQ::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #00ffff;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 6px rgba(0,255,255,0.6);
+      cursor: pointer;
+    }
+    #filterQ::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, rgba(0,255,255,0.15), rgba(0,255,255,0.85));
+    }
+    #filterQValue { color:#000; font-weight:600; }
   </style>
   <!-- Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
@@ -37,6 +74,10 @@
 <body>
   <div id="startContainer">
     <button id="startButton">Start Audio</button>
+  </div>
+  <div id="filterQContainer" style="position:absolute; left:24px; top:340px; background:rgba(0,0,0,0.15); padding:6px 8px; border-radius:6px;">
+    <label for="filterQ" style="font-size:12px; display:block; color:#000;">Resonance (Q): <span id="filterQValue"></span></label>
+    <input id="filterQ" type="range" min="0.1" max="18" step="0.1" value="0.9" style="width:180px;">
   </div>
 
   <!-- App modules -->

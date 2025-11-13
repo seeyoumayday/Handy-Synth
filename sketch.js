@@ -5,6 +5,7 @@ let video;
 let predictions = [];
 let lastDisplayedFreq = 0;
 let freqHistory = [];
+let lastCutoff = NaN; // フィルタカットオフの最新値
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -22,6 +23,22 @@ function setup() {
     btn.addEventListener('click', async () => {
       await window.audioEngine.ensureStarted();
       btn.style.display = 'none';
+    });
+  }
+
+  // フィルタQスライダー初期化
+  const qSlider = document.getElementById('filterQ');
+  const qValueLabel = document.getElementById('filterQValue');
+  if (qSlider && qValueLabel) {
+    // 初期値を CONFIG から反映
+    if (window.CONFIG) {
+      qSlider.value = window.CONFIG.FILTER_Q;
+    }
+    qValueLabel.textContent = qSlider.value;
+    qSlider.addEventListener('input', () => {
+      const q = parseFloat(qSlider.value);
+      window.audioEngine.setFilterQ(q);
+      qValueLabel.textContent = qSlider.value;
     });
   }
 }
@@ -91,6 +108,11 @@ function draw() {
     const bend = map(cx, 0, vw, -CONFIG.BEND_RANGE, CONFIG.BEND_RANGE);
     const targetFreq = baseFreq * (1 + bend);
 
+  // フィルタのカットオフを手の縦位置にマップ（手を上げるとカットオフが上がる）
+  const cutoff = map(cy, 0, vh, CONFIG.FILTER_MAX_CUTOFF, CONFIG.FILTER_MIN_CUTOFF);
+  window.audioEngine.setFilterCutoff(cutoff, 0.08);
+  lastCutoff = cutoff;
+
     // 周波数を滑らかに変える
     window.audioEngine.rampToFrequency(targetFreq, 0.06);
 
@@ -127,6 +149,21 @@ function draw() {
 
   // 周波数グラフを左下に描画
   window.drawUtils.drawFrequencyGraph(freqHistory, lastDisplayedFreq, window.CONFIG);
+  window.drawUtils.drawFilterGraph(lastCutoff, window.CONFIG);
+
+  // フィルタグラフ直下に Q スライダーを配置（レスポンシブ）
+  const qContainer = document.getElementById('filterQContainer');
+  if (qContainer) {
+    const M = window.CONFIG.GRAPH.MARGIN;
+    const W = window.CONFIG.GRAPH.WIDTH;
+    const H = window.CONFIG.GRAPH.HEIGHT;
+    // drawFilterGraph の x0,y0 計算と揃える（x0=M+6, y0=M+48+H+M+6）
+    const x0 = M + 6;
+    const y0 = M + 48 + H + M + 6;
+    const sliderTop = y0 + H + 8; // グラフの下 + 余白
+    qContainer.style.left = `${x0}px`;
+    qContainer.style.top = `${sliderTop}px`;
+  }
 
   // 情報表示（左上テキストボックス）はUI要望により削除しました。
 }
