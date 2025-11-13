@@ -1,19 +1,15 @@
+<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Handpose Synth</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
-  <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
-</head>
-<body>
-  <div style="text-align:center; margin-top:8px;">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     /* 全画面化のための基本スタイル */
     html, body {
       height: 100%;
       margin: 0;
-      /* くすんだ白（ややグレー寄りの白）を背景に設定 */
-      background: #f2f1ef;
+      background: #f2f1ef; /* くすんだ白 */
       overflow: hidden; /* 余白スクロールを防ぐ */
     }
     /* Startボタンをキャンバス上に重ねる（背景は透明にしてボタンのみ表示） */
@@ -34,10 +30,20 @@
       cursor: pointer;
     }
   </style>
+  <!-- Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
   <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
-  </div>
-  <script src="sketch.js"></script>
+</head>
+<body>
   <div id="startContainer">
     <button id="startButton">Start Audio</button>
   </div>
+
+  <!-- App modules -->
+  <script src="config.js"></script>
+  <script src="audioEngine.js"></script>
+  <script src="handposeModel.js"></script>
+  <script src="drawUtils.js"></script>
+  <script src="sketch.js"></script>
+</body>
+</html>
