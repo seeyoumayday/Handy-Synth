@@ -151,7 +151,7 @@
 
     const fMin = CONFIG.FILTER_MIN_CUTOFF;
     const fMax = CONFIG.FILTER_MAX_CUTOFF;
-  const samplePoints = 120; // 曲線サンプル密度
+  const samplePoints = (window && window.isMobile) ? 40 : 120; // モバイルではサンプル数を減らす
     const clampedCutoff = constrain(cutoff, fMin, fMax);
 
     // ハイパス一次フィルタ風の理想振幅: A_hp(f) = (f/fc) / sqrt(1 + (f/fc)^2)

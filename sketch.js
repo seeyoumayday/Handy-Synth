@@ -2,6 +2,7 @@
 // 役割：ステージ生成、映像・推論・音声のオーケストレーション
 
 let video;
+let isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 let predictions = [];
 let lastDisplayedFreq = 0;
 let freqHistory = [];
@@ -9,9 +10,18 @@ let lastCutoff = NaN; // フィルタカットオフの最新値
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  // カメラ
+  // モバイルでは負荷を下げる
+  if (isMobile) {
+    frameRate(24);
+    pixelDensity(1);
+  }
+  // カメラ（モバイルは低解像度で負荷軽減）
   video = createCapture(VIDEO);
-  video.size(width, height);
+  if (isMobile) {
+    video.size(320, 240);
+  } else {
+    video.size(width, height);
+  }
   video.hide();
 
   // handpose モデル
@@ -47,7 +57,10 @@ function windowResized() {
   // ウィンドウサイズに合わせてキャンバスとビデオをリサイズ
   resizeCanvas(windowWidth, windowHeight);
   if (video && typeof video.size === 'function') {
-    video.size(width, height);
+    if (!isMobile) {
+      video.size(width, height);
+    }
+    // モバイルは固定低解像度維持
   }
 }
 
@@ -57,6 +70,11 @@ function gotResults(results) {
 
 function draw() {
   background(200);
+
+  // 推論／オーディオ更新のスロットリング（モバイルでは間引く）
+  if (typeof window._hs_frameCounter === 'undefined') window._hs_frameCounter = 0;
+  window._hs_frameCounter++;
+  const processEvery = isMobile ? 3 : 1; // モバイルは3フレームに1回更新
 
   // ビデオの実際のピクセルサイズ（取得できなければキャンバスサイズを使う）
   const vw = (video && video.elt && video.elt.videoWidth) ? video.elt.videoWidth : video.width;
@@ -80,7 +98,7 @@ function draw() {
   window.drawUtils.drawHand(predictions, dx, dy, drawW, drawH, vw, vh);
 
   // 音声処理（新設計）: 横位置=基本ピッチ、縦位置=微小ピッチベンド、開閉=ローカット(HPF)
-  if (predictions.length > 0 && window.audioEngine.isReady()) {
+  if ((window._hs_frameCounter % processEvery) === 0 && predictions.length > 0 && window.audioEngine.isReady()) {
     const hand = predictions[0];
     const thumb = hand.landmarks[4];
     const pinky = hand.landmarks[20];
