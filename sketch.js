@@ -79,19 +79,15 @@ function draw() {
   // ランドマーク描画（描画領域に合わせてスケーリング & ミラー処理）
   window.drawUtils.drawHand(predictions, dx, dy, drawW, drawH, vw, vh);
 
-  // 音声処理: 親指(4)と小指(20)の距離で周波数、手の重心xで微小ピッチベンド
+  // 音声処理（新設計）: 横位置=基本ピッチ、縦位置=微小ピッチベンド、開閉=ローカット(HPF)
   if (predictions.length > 0 && window.audioEngine.isReady()) {
     const hand = predictions[0];
     const thumb = hand.landmarks[4];
     const pinky = hand.landmarks[20];
 
-    // 距離
+    // 距離（開閉判定）
     const d = dist(thumb[0], thumb[1], pinky[0], pinky[1]);
-
-    // 距離を周波数にマップ
     const cd = constrain(d, CONFIG.MIN_D, CONFIG.MAX_D);
-    const t = (cd - CONFIG.MIN_D) / (CONFIG.MAX_D - CONFIG.MIN_D);
-    const baseFreq = CONFIG.LOW_FREQ + t * (CONFIG.HIGH_FREQ - CONFIG.LOW_FREQ);
 
     // 手の重心 (動画座標系)
     let cx = 0;
@@ -103,15 +99,19 @@ function draw() {
     cx /= hand.landmarks.length;
     cy /= hand.landmarks.length;
 
-    // ピッチベンド（横位置 → ±比率）
-    // hand.landmarks は動画座標系 (0..vw, 0..vh) のため、vw を基準にマップする
-    const bend = map(cx, 0, vw, -CONFIG.BEND_RANGE, CONFIG.BEND_RANGE);
-    const targetFreq = baseFreq * (1 + bend);
+    // 横位置 → 基本ピッチ（右へ行くほど高く：ミラー補正のため 1 - cx/vw）
+    const xNorm = 1 - (cx / vw);
+    const baseFreq = CONFIG.LOW_FREQ + xNorm * (CONFIG.HIGH_FREQ - CONFIG.LOW_FREQ);
 
-  // フィルタのカットオフを手の縦位置にマップ（手を上げるとカットオフが上がる）
-  const cutoff = map(cy, 0, vh, CONFIG.FILTER_MAX_CUTOFF, CONFIG.FILTER_MIN_CUTOFF);
-  window.audioEngine.setFilterCutoff(cutoff, 0.08);
-  lastCutoff = cutoff;
+    // 縦位置 → 微小ピッチベンド（上で+、下で-）
+    const bendY = map(cy, 0, vh, CONFIG.BEND_RANGE, -CONFIG.BEND_RANGE);
+    const targetFreq = baseFreq * (1 + bendY);
+
+    // ハイパス（ローカット）: 手を閉じるほど強いローカット
+    const openness = (cd - CONFIG.MIN_D) / (CONFIG.MAX_D - CONFIG.MIN_D); // 0=閉,1=開
+    const hpfCutoff = CONFIG.FILTER_MAX_CUTOFF + (CONFIG.FILTER_MIN_CUTOFF - CONFIG.FILTER_MAX_CUTOFF) * openness; // 開くほどカットオフ低下
+    window.audioEngine.setHighpassCutoff(hpfCutoff, 0.08);
+    lastCutoff = hpfCutoff;
 
     // 周波数を滑らかに変える
     window.audioEngine.rampToFrequency(targetFreq, 0.06);
@@ -123,18 +123,18 @@ function draw() {
       window.audioEngine.noteOn(0.18, 0.08);
     }
 
-  // 軽く重心位置を可視化（動画→描画領域へスケール＆ミラー変換）
-  // drawW/drawH, dx/dy は上で計算済み
-  const sx = drawW / vw;
-  const sy = drawH / vh;
-  const drawCX = dx + (drawW - (cx * sx)); // ミラー処理
-  const drawCY = dy + (cy * sy);
+    // 軽く重心位置を可視化（動画→描画領域へスケール＆ミラー変換）
+    // drawW/drawH, dx/dy は上で計算済み
+    const sx = drawW / vw;
+    const sy = drawH / vh;
+    const drawCX = dx + (drawW - (cx * sx)); // ミラー処理
+    const drawCY = dy + (cy * sy);
 
-  push();
-  noStroke();
-  fill(255, 200, 0, 180);
-  ellipse(drawCX, drawCY, 12, 12);
-  pop();
+    push();
+    noStroke();
+    fill(255, 200, 0, 180);
+    ellipse(drawCX, drawCY, 12, 12);
+    pop();
 
   } else if (window.audioEngine.isReady() && window.audioEngine.isActive()) {
     // 手が見えないときはフェードアウト

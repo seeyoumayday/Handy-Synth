@@ -5,7 +5,7 @@
   let audioCtx = null;
   let osc = null;
   let gainNode = null;
-  let filterNode = null;
+  let filterNode = null; // ハイパスフィルタ
   let active = false;
 
   async function ensureStarted() {
@@ -17,9 +17,9 @@
   osc.type = 'sawtooth';
       osc.frequency.value = 220;
 
-      // filter (lowpass) を用意
-  filterNode = audioCtx.createBiquadFilter();
-  filterNode.type = 'lowpass';
+      // filter (highpass) を用意（ローカット）
+      filterNode = audioCtx.createBiquadFilter();
+      filterNode.type = 'highpass';
   filterNode.frequency.value = 1000;
   filterNode.Q.value = (window.CONFIG && window.CONFIG.FILTER_Q) ? window.CONFIG.FILTER_Q : 0.9;
 
@@ -61,7 +61,7 @@
     }
   }
 
-  function setFilterCutoff(freq, rampSec = 0.05){
+  function setHighpassCutoff(freq, rampSec = 0.05){
     if (!isReady()) return;
     const now = audioCtx.currentTime;
     try {
@@ -72,6 +72,9 @@
       filterNode.frequency.setTargetAtTime(freq, now, rampSec);
     }
   }
+
+  // 互換: 以前のAPI名が残っている場合に備え
+  const setFilterCutoff = setHighpassCutoff;
 
   function noteOn(targetGain = 0.18, rampSec = 0.08){
     if (!isReady()) return;
@@ -106,7 +109,8 @@
     rampToFrequency,
     noteOn,
     noteOff,
-    setFilterCutoff,
+    setFilterCutoff,      // 互換API（内部はHPF）
+    setHighpassCutoff,
     setFilterQ,
   };
 })();
