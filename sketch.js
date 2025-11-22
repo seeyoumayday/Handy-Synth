@@ -3,6 +3,8 @@
 
 let video;
 let isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+let handModel = null;
+let handposeAttached = false; // 予測リスナー接続状態
 let predictions = [];
 let lastDisplayedFreq = 0;
 let freqHistory = [];
@@ -24,15 +26,27 @@ function setup() {
   }
   video.hide();
 
-  // handpose モデル
-  window.handposeCtrl.init(video, gotResults);
+  // handpose モデル（初期は未接続：Start Audioで接続）
+  handModel = window.handposeCtrl.init(video, gotResults);
+  detachHandpose();
 
   // Startボタン
   const btn = document.getElementById('startButton');
+  const stopBtn = document.getElementById('stopButton');
   if (btn) {
     btn.addEventListener('click', async () => {
-      await window.audioEngine.ensureStarted();
+      await window.audioEngine.startAudio();
+      attachHandpose();
       btn.style.display = 'none';
+      if (stopBtn) stopBtn.style.display = 'inline-block';
+    });
+  }
+  if (stopBtn) {
+    stopBtn.addEventListener('click', () => {
+      window.audioEngine.stopAudio();
+      detachHandpose();
+      stopBtn.style.display = 'none';
+      if (btn) btn.style.display = 'inline-block';
     });
   }
 
@@ -70,12 +84,6 @@ function gotResults(results) {
 
 function draw() {
   background(200);
-
-  // 推論／オーディオ更新のスロットリング（モバイルでは間引く）
-  if (typeof window._hs_frameCounter === 'undefined') window._hs_frameCounter = 0;
-  window._hs_frameCounter++;
-  const processEvery = isMobile ? 3 : 1; // モバイルは3フレームに1回更新
-
   // ビデオの実際のピクセルサイズ（取得できなければキャンバスサイズを使う）
   const vw = (video && video.elt && video.elt.videoWidth) ? video.elt.videoWidth : video.width;
   const vh = (video && video.elt && video.elt.videoHeight) ? video.elt.videoHeight : video.height;
@@ -87,18 +95,28 @@ function draw() {
   const dx = (width - drawW) / 2;
   const dy = (height - drawH) / 2;
 
-  // ミラーしつつ、アスペクト比を保った大きさで描画する
+  // ミラーしつつ、アスペクト比を保った大きさで描画する（常に表示）
   push();
   translate(dx + drawW, 0);
   scale(-1, 1);
   image(video, 0, dy, drawW, drawH);
   pop();
 
+  // 停止中はここで終了（ランドマーク・グラフ等を描かない）
+  if (!window.audioEngine.isRunning()) {
+    return;
+  }
+
+  // 推論／オーディオ更新のスロットリング（モバイルでは間引く）
+  if (typeof window._hs_frameCounter === 'undefined') window._hs_frameCounter = 0;
+  window._hs_frameCounter++;
+  const processEvery = isMobile ? 3 : 1; // モバイルは3フレームに1回更新
+
   // ランドマーク描画（描画領域に合わせてスケーリング & ミラー処理）
   window.drawUtils.drawHand(predictions, dx, dy, drawW, drawH, vw, vh);
 
   // 音声処理（新設計）: 横位置=基本ピッチ、縦位置=微小ピッチベンド、開閉=ローカット(HPF)
-  if ((window._hs_frameCounter % processEvery) === 0 && predictions.length > 0 && window.audioEngine.isReady()) {
+  if ((window._hs_frameCounter % processEvery) === 0 && predictions.length > 0 && window.audioEngine.isReady() && window.audioEngine.isRunning()) {
     const hand = predictions[0];
     const thumb = hand.landmarks[4];
     const pinky = hand.landmarks[20];
@@ -154,7 +172,7 @@ function draw() {
     ellipse(drawCX, drawCY, 12, 12);
     pop();
 
-  } else if (window.audioEngine.isReady() && window.audioEngine.isActive()) {
+  } else if (window.audioEngine.isReady() && window.audioEngine.isActive() && window.audioEngine.isRunning()) {
     // 手が見えないときはフェードアウト
     window.audioEngine.noteOff(0.12);
   }
@@ -184,4 +202,26 @@ function draw() {
   }
 
   // 情報表示（左上テキストボックス）はUI要望により削除しました。
+}
+
+// Handpose予測リスナー接続
+function attachHandpose(){
+  if (handModel && !handposeAttached) {
+    try {
+      handModel.on('predict', gotResults);
+      handposeAttached = true;
+    } catch(e){ console.warn('attachHandpose failed', e); }
+  }
+}
+
+// Handpose予測リスナー解除
+function detachHandpose(){
+  if (handModel && handposeAttached) {
+    try {
+      // ml5 の EventEmitter 互換APIがある前提
+      if (handModel.off) handModel.off('predict', gotResults);
+      handposeAttached = false;
+    } catch(e){ console.warn('detachHandpose failed', e); }
+  }
+  predictions = []; // 前回の結果をクリア
 }

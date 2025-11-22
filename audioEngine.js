@@ -7,6 +7,7 @@
   let gainNode = null;
   let filterNode = null; // ハイパスフィルタ
   let active = false;
+   let running = false; // ユーザーが再生状態にあるか（Stop Audio対応）
 
   async function ensureStarted() {
     if (!audioCtx) {
@@ -38,11 +39,16 @@
     } catch (e) {
       console.warn('AudioContext resume failed:', e);
     }
+     // ensureStarted では running は変更しない（startAudioでtrueにする）
   }
 
   function isReady(){
     return !!audioCtx && !!osc && !!gainNode && !!filterNode;
   }
+
+   function isRunning(){
+     return running;
+   }
 
   function isActive(){
     return !!active;
@@ -78,6 +84,7 @@
 
   function noteOn(targetGain = 0.18, rampSec = 0.08){
     if (!isReady()) return;
+     if (!running) return; // 停止中は発音しない
     if (active) return;
     const now = audioCtx.currentTime;
     gainNode.gain.cancelScheduledValues(now);
@@ -96,6 +103,32 @@
     active = false;
   }
 
+   function startAudio(){
+     running = true;
+     if (!isReady()) {
+       // 初回セットアップ
+       return ensureStarted();
+     }
+     // 既存Contextがsuspendedならresume
+     if (audioCtx.state === 'suspended') {
+       audioCtx.resume();
+     }
+   }
+
+   function stopAudio(){
+     if (!isReady()) return;
+     running = false;
+     // ゲインをフェードアウト
+     noteOff(0.15);
+     // 少し後に suspend（フェード完了後を目安）
+     const delayMs = 180;
+     setTimeout(() => {
+       if (audioCtx && audioCtx.state === 'running' && !running) {
+         audioCtx.suspend().catch(e => console.warn('AudioContext suspend failed', e));
+       }
+     }, delayMs);
+   }
+
   function setFilterQ(q){
     if (!isReady()) return;
     const clamped = Math.max(0.001, Math.min(q, 50));
@@ -106,11 +139,14 @@
     ensureStarted,
     isReady,
     isActive,
+     isRunning,
     rampToFrequency,
     noteOn,
     noteOff,
     setFilterCutoff,      // 互換API（内部はHPF）
     setHighpassCutoff,
     setFilterQ,
+     startAudio,
+     stopAudio,
   };
 })();
