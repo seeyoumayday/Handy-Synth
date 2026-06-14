@@ -14,9 +14,9 @@ window.CONFIG = {
   }
   ,
   // フィルタのカットオフレンジ（Hz）
-  FILTER_MIN_CUTOFF: 200,   // ローパス最低カットオフ（低いほどこもる）
-  FILTER_MAX_CUTOFF: 5000,  // ローパス最高カットオフ（高いほどブライト）
-  FILTER_Q: 0.9,            // ローパスフィルタの初期Q（共鳴）
+  FILTER_MIN_CUTOFF: 200,   // ハイパス最低カットオフ（低いほど低音が出る）
+  FILTER_MAX_CUTOFF: 5000,  // ハイパス最高カットオフ（高いほど高域のみになる）
+  FILTER_Q: 0.9,            // ハイパスフィルタの初期Q（共鳴）
   FILTER_Q_MIN: 0.1,        // UIスライダー用 Q 最小値
   FILTER_Q_MAX: 18          // UIスライダー用 Q 最大値（過剰な共鳴を避ける範囲）
 };
